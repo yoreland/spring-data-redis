@@ -27,9 +27,10 @@ import org.springframework.data.redis.connection.PoolException;
 import org.springframework.data.redis.connection.RedisSentinelConfiguration;
 import org.springframework.util.Assert;
 
-import com.lambdaworks.redis.RedisAsyncConnection;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisURI;
+import com.lambdaworks.redis.api.StatefulConnection;
+import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.resource.ClientResources;
 
 /**
@@ -42,7 +43,7 @@ import com.lambdaworks.redis.resource.ClientResources;
 public class DefaultLettucePool implements LettucePool, InitializingBean {
 
 	@SuppressWarnings("rawtypes") //
-	private GenericObjectPool<RedisAsyncConnection> internalPool;
+	private GenericObjectPool<StatefulConnection<byte[], byte[]>> internalPool;
 	private RedisClient client;
 	private int dbIndex = 0;
 	private GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
@@ -111,7 +112,8 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 		}
 
 		client.setDefaultTimeout(timeout, TimeUnit.MILLISECONDS);
-		this.internalPool = new GenericObjectPool<RedisAsyncConnection>(new LettuceFactory(client, dbIndex), poolConfig);
+		this.internalPool = new GenericObjectPool<StatefulConnection<byte[], byte[]>>(new LettuceFactory(client, dbIndex),
+				poolConfig);
 	}
 
 	/**
@@ -136,7 +138,7 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 	}
 
 	@SuppressWarnings("unchecked")
-	public RedisAsyncConnection<byte[], byte[]> getResource() {
+	public StatefulConnection<byte[], byte[]> getResource() {
 		try {
 			return internalPool.borrowObject();
 		} catch (Exception e) {
@@ -144,7 +146,7 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 		}
 	}
 
-	public void returnBrokenResource(final RedisAsyncConnection<byte[], byte[]> resource) {
+	public void returnBrokenResource(final StatefulConnection<byte[], byte[]> resource) {
 		try {
 			internalPool.invalidateObject(resource);
 		} catch (Exception e) {
@@ -152,7 +154,7 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 		}
 	}
 
-	public void returnResource(final RedisAsyncConnection<byte[], byte[]> resource) {
+	public void returnResource(final StatefulConnection<byte[], byte[]> resource) {
 		try {
 			internalPool.returnObject(resource);
 		} catch (Exception e) {
@@ -303,7 +305,7 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 	}
 
 	@SuppressWarnings("rawtypes")
-	private static class LettuceFactory extends BasePooledObjectFactory<RedisAsyncConnection> {
+	private static class LettuceFactory extends BasePooledObjectFactory<StatefulConnection<byte[], byte[]>> {
 
 		private final RedisClient client;
 
@@ -316,11 +318,14 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 		}
 
 		@Override
-		public void activateObject(PooledObject<RedisAsyncConnection> pooledObject) throws Exception {
-			pooledObject.getObject().select(dbIndex);
+		public void activateObject(PooledObject<StatefulConnection<byte[], byte[]>> pooledObject) throws Exception {
+
+			if (pooledObject.getObject() instanceof StatefulRedisConnection) {
+				((StatefulRedisConnection) pooledObject.getObject()).sync().select(dbIndex);
+			}
 		}
 
-		public void destroyObject(final PooledObject<RedisAsyncConnection> obj) throws Exception {
+		public void destroyObject(final PooledObject<StatefulConnection<byte[], byte[]>> obj) throws Exception {
 			try {
 				obj.getObject().close();
 			} catch (Exception e) {
@@ -328,9 +333,11 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 			}
 		}
 
-		public boolean validateObject(final PooledObject<RedisAsyncConnection> obj) {
+		public boolean validateObject(final PooledObject<StatefulConnection<byte[], byte[]>> obj) {
 			try {
-				obj.getObject().ping();
+				if (obj.getObject() instanceof StatefulRedisConnection) {
+					((StatefulRedisConnection) obj.getObject()).sync().ping();
+				}
 				return true;
 			} catch (Exception e) {
 				return false;
@@ -338,14 +345,13 @@ public class DefaultLettucePool implements LettucePool, InitializingBean {
 		}
 
 		@Override
-		public RedisAsyncConnection create() throws Exception {
-			return client.connectAsync(LettuceConnection.CODEC);
+		public StatefulConnection<byte[], byte[]> create() throws Exception {
+			return client.connect(LettuceConnection.CODEC);
 		}
 
-		@Override
-		public PooledObject<RedisAsyncConnection> wrap(RedisAsyncConnection obj) {
-			return new DefaultPooledObject<RedisAsyncConnection>(obj);
+		// @Override
+		public PooledObject<StatefulConnection<byte[], byte[]>> wrap(StatefulConnection<byte[], byte[]> obj) {
+			return new DefaultPooledObject<StatefulConnection<byte[], byte[]>>(obj);
 		}
-
 	}
 }

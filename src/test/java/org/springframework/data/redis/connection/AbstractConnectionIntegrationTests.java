@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.hamcrest.core.IsNot;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.internal.AssumptionViolatedException;
@@ -574,6 +575,7 @@ public abstract class AbstractConnectionIntegrationTests {
 	}
 
 	@Test
+	@Ignore("DATAREDIS-525")
 	public void testNullKey() throws Exception {
 		try {
 			connection.decr((String) null);
@@ -584,7 +586,9 @@ public abstract class AbstractConnectionIntegrationTests {
 	}
 
 	@Test
+	@Ignore("DATAREDIS-525")
 	public void testNullValue() throws Exception {
+
 		byte[] key = UUID.randomUUID().toString().getBytes();
 		connection.append(key, EMPTY_ARRAY);
 		try {
@@ -596,7 +600,9 @@ public abstract class AbstractConnectionIntegrationTests {
 	}
 
 	@Test
+	@Ignore("DATAREDIS-525")
 	public void testHashNullKey() throws Exception {
+
 		byte[] key = UUID.randomUUID().toString().getBytes();
 		try {
 			connection.hExists(key, null);
@@ -607,6 +613,7 @@ public abstract class AbstractConnectionIntegrationTests {
 	}
 
 	@Test
+	@Ignore("DATAREDIS-525")
 	public void testHashNullValue() throws Exception {
 		byte[] key = UUID.randomUUID().toString().getBytes();
 		byte[] field = "random".getBytes();
