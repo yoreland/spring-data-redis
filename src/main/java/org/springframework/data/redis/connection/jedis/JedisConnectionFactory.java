@@ -34,6 +34,7 @@ import org.springframework.data.redis.ExceptionTranslationStrategy;
 import org.springframework.data.redis.PassThroughExceptionTranslationStrategy;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.connection.ClusterCommandExecutor;
+import org.springframework.data.redis.connection.ReactiveRedisConnection;
 import org.springframework.data.redis.connection.RedisClusterConfiguration;
 import org.springframework.data.redis.connection.RedisClusterConnection;
 import org.springframework.data.redis.connection.RedisConnection;
@@ -271,8 +272,9 @@ public class JedisConnectionFactory implements InitializingBean, DisposableBean,
 	private JedisCluster createCluster() {
 
 		JedisCluster cluster = createCluster(this.clusterConfig, this.poolConfig);
-		this.clusterCommandExecutor = new ClusterCommandExecutor(new JedisClusterConnection.JedisClusterTopologyProvider(
-				cluster), new JedisClusterConnection.JedisClusterNodeResourceProvider(cluster), EXCEPTION_TRANSLATION);
+		this.clusterCommandExecutor = new ClusterCommandExecutor(
+				new JedisClusterConnection.JedisClusterTopologyProvider(cluster),
+				new JedisClusterConnection.JedisClusterNodeResourceProvider(cluster), EXCEPTION_TRANSLATION);
 		return cluster;
 	}
 
@@ -343,8 +345,8 @@ public class JedisConnectionFactory implements InitializingBean, DisposableBean,
 		}
 
 		Jedis jedis = fetchJedisConnector();
-		JedisConnection connection = (usePool ? new JedisConnection(jedis, pool, dbIndex) : new JedisConnection(jedis,
-				null, dbIndex));
+		JedisConnection connection = (usePool ? new JedisConnection(jedis, pool, dbIndex)
+				: new JedisConnection(jedis, null, dbIndex));
 		connection.setConvertPipelineAndTxResults(convertPipelineAndTxResults);
 		return postProcessConnection(connection);
 	}
@@ -360,6 +362,15 @@ public class JedisConnectionFactory implements InitializingBean, DisposableBean,
 			throw new InvalidDataAccessApiUsageException("Cluster is not configured!");
 		}
 		return new JedisClusterConnection(cluster, clusterCommandExecutor);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.redis.connection.RedisConnectionFactory#getReactiveConnection()
+	 */
+	@Override
+	public ReactiveRedisConnection getReactiveConnection() {
+		throw new UnsupportedOperationException("Jedis does not support racative connections");
 	}
 
 	/*
