@@ -17,8 +17,13 @@ package org.springframework.data.redis.repository.query;
 
 import java.util.Iterator;
 
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.geo.Circle;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.Point;
 import org.springframework.data.keyvalue.core.query.KeyValueQuery;
+import org.springframework.data.redis.repository.query.RedisOperationChain.NearPath;
 import org.springframework.data.repository.query.ParameterAccessor;
 import org.springframework.data.repository.query.parser.AbstractQueryCreator;
 import org.springframework.data.repository.query.parser.Part;
@@ -34,6 +39,7 @@ public class RedisQueryCreator extends AbstractQueryCreator<KeyValueQuery<RedisO
 
 	public RedisQueryCreator(PartTree tree, ParameterAccessor parameters) {
 		super(tree, parameters);
+
 	}
 
 	/*
@@ -50,6 +56,29 @@ public class RedisQueryCreator extends AbstractQueryCreator<KeyValueQuery<RedisO
 		switch (part.getType()) {
 			case SIMPLE_PROPERTY:
 				sink.sismember(part.getProperty().toDotPath(), iterator.next());
+				break;
+			case WITHIN:
+			case NEAR:
+
+				Object o = iterator.next();
+
+				Point point = null;
+				Distance distance = null;
+
+				if (o instanceof Circle) {
+
+					point = ((Circle) o).getCenter();
+					distance = ((Circle) o).getRadius();
+				} else if (o instanceof Point) {
+
+					point = (Point) o;
+					distance = (Distance) iterator.next();
+				} else {
+					throw new InvalidDataAccessApiUsageException(
+							String.format("Expected to find a Circle or Point/Distance for geo query but was %s.", o.getClass()));
+				}
+
+				sink.near(new NearPath(part.getProperty().toDotPath(), point, distance));
 				break;
 			default:
 				throw new IllegalArgumentException(part.getType() + "is not supported for redis query derivation");
