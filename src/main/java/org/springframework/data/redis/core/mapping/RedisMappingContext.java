@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 the original author or authors.
+ * Copyright 2015-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,29 +33,30 @@ import org.springframework.data.mapping.PersistentProperty;
 import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.data.mapping.model.SimpleTypeHolder;
 import org.springframework.data.redis.core.PartialUpdate;
-import org.springframework.data.redis.core.PartialUpdate.PropertyUpdate;
-import org.springframework.data.redis.core.PartialUpdate.UpdateCommand;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.TimeToLive;
 import org.springframework.data.redis.core.TimeToLiveAccessor;
+import org.springframework.data.redis.core.PartialUpdate.PropertyUpdate;
+import org.springframework.data.redis.core.PartialUpdate.UpdateCommand;
 import org.springframework.data.redis.core.convert.KeyspaceConfiguration;
-import org.springframework.data.redis.core.convert.KeyspaceConfiguration.KeyspaceSettings;
 import org.springframework.data.redis.core.convert.MappingConfiguration;
+import org.springframework.data.redis.core.convert.KeyspaceConfiguration.KeyspaceSettings;
 import org.springframework.data.redis.core.index.IndexConfiguration;
 import org.springframework.data.util.TypeInformation;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.NumberUtils;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.util.ReflectionUtils.MethodCallback;
 import org.springframework.util.ReflectionUtils.MethodFilter;
-import org.springframework.util.StringUtils;
 
 /**
  * Redis specific {@link MappingContext}.
  * 
  * @author Christoph Strobl
  * @author Oliver Gierke
+ * @author Mark Paluch
  * @since 1.7
  */
 public class RedisMappingContext extends KeyValueMappingContext {
@@ -291,6 +292,10 @@ public class RedisMappingContext extends KeyValueMappingContext {
 
 				Method timeoutMethod = resolveTimeMethod(type);
 				if (timeoutMethod != null) {
+
+					if (!timeoutMethod.isAccessible()) {
+						ReflectionUtils.makeAccessible(timeoutMethod);
+					}
 
 					TimeToLive ttl = AnnotationUtils.findAnnotation(timeoutMethod, TimeToLive.class);
 					try {
